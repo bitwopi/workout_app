@@ -26,11 +26,29 @@
             on_press:
                 app.root.transition.direction: "left"
                 app.root.current = "edit_preset"
+                root.set_preset()
         Button:
             text: "remove preset"
+            on_press:
+                root.set_preset()
+
+<ExerciseBoxLayout>:
+    BoxLayout:
+        spacing: 10
+        Button:
+            text: "edit exercise"
+            on_press:
+                app.root.transition.direction: "left"
+                app.root.current = "edit_exercise"
+                root.set_exercise()
+        Button:
+            text: "remove exercise"
+            on_press:
+                root.set_exercise()
 
 <EditPresetScreen>:
     preset_name: preset_name
+    sv: sv
     GridLayout:
         cols: 1
         BoxLayout:
@@ -40,14 +58,14 @@
                 text: "<--"
                 font_size: 25
                 on_press:
-                    root.manager.transition.direction = 'right'
-                    root.manager.current = 'start'
+                    app.root.transition.direction = 'right'
+                    app.root.current = 'start'
             Button:
                 text: "Add exercise"
                 font_size: 25
                 on_press:
-                    root.manager.transition.direction = 'left'
-                    root.manager.current = 'edit_exercise'
+                    app.root.transition.direction = 'left'
+                    app.root.current = 'edit_exercise'
 
         Label:
             text: root.preset_name.text
@@ -65,9 +83,8 @@
                 font_size: 25
                 multiline: False
         ScrollView:
+            id: sv
             ExerciseListContainer:
-                size_hint_y: None
-                height: self.minimum_height
 
 
 <EditExerciseScreen>:
@@ -79,15 +96,46 @@
     ScrollView:
         GridLayout:
             cols: 1
+            BoxLayout:
+                size_hint_y: None
+                height: 40
+                Button:
+                    text: "<--"
+                    font_size: 25
+                    on_press:
+                        app.root.transition.direction = 'right'
+                        app.root.current = 'edit_preset'
+                Button:
+                    text: "Save"
+                    font_size: 25
+                    on_press:
+                        app.root.transition.direction = 'right'
+                        app.root.current = 'edit_preset'
+                        root.save()
+            BoxLayout:
+                Label:
+                    text: "Name:"
+                TextInput:
+                    id: exercise_name
+            BoxLayout:
+                Label:
+                    text: "Break duration:"
+                TextInput:
+                    id: exercise_brk
+            BoxLayout:
+                Label:
+                    text: "Repetitions:"
+                TextInput:
+                    id: exercise_reps
+            BoxLayout:
+                Label:
+                    text: "Duration:"
+                TextInput:
+                    id: exercise_time
             ToggleButton:
                 id: toggle_button
+                font_size: 25
                 on_state:
                     root.on_toggle_button_state(self)
-            TextInput:
-                id: exercise_name
-            TextInput:
-                id: exercise_brk
-            TextInput:
-                id: exercise_reps
-            TextInput:
-                id: exercise_time
+
+
