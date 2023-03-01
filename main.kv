@@ -1,0 +1,22 @@
+<EditPresetScreen>:
+    BoxLayout:
+        Button:
+            text: 'add exercise'
+            on_press:
+                root.manager.transition.direction = 'left'
+                root.manager.current = 'edit_exercise'
+        Button:
+            text: 'Back to presets'
+            on_press:
+                root.manager.transition.direction = 'right'
+                root.manager.current = 'start'
+
+<EditExerciseScreen>:
+    BoxLayout:
+        Button:
+            text: 'save'
+        Button:
+            text: 'back to exercises'
+            on_press:
+                root.manager.transition.direction = 'right'
+                root.manager.current = 'edit_preset'
