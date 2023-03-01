@@ -1,22 +1,93 @@
-<EditPresetScreen>:
+<StartingScreen>:
+    ScrollView:
+        PresetListContainer:
+            size_hint_y: None
+            height: self.minimum_height
+    Button:
+        text: "add preset"
+        font_size: 25
+        size_hint: 1, None
+        height: 50
+        on_press:
+            app.root.transition.direction: "left"
+            app.root.current = "edit_preset"
+            #app.add_preset()
+
+<PresetBoxLayout>:
     BoxLayout:
+        spacing: 10
         Button:
-            text: 'add exercise'
+            text: "start training"
             on_press:
-                root.manager.transition.direction = 'left'
-                root.manager.current = 'edit_exercise'
+                app.root.transition.direction: "left"
+                app.root.current = "training"
         Button:
-            text: 'Back to presets'
+            text: "edit preset"
             on_press:
-                root.manager.transition.direction = 'right'
-                root.manager.current = 'start'
+                app.root.transition.direction: "left"
+                app.root.current = "edit_preset"
+        Button:
+            text: "remove preset"
+
+<EditPresetScreen>:
+    preset_name: preset_name
+    GridLayout:
+        cols: 1
+        BoxLayout:
+            size_hint_y: None
+            height: 40
+            Button:
+                text: "<--"
+                font_size: 25
+                on_press:
+                    root.manager.transition.direction = 'right'
+                    root.manager.current = 'start'
+            Button:
+                text: "Add exercise"
+                font_size: 25
+                on_press:
+                    root.manager.transition.direction = 'left'
+                    root.manager.current = 'edit_exercise'
+
+        Label:
+            text: root.preset_name.text
+            size_hint_y: None
+            height: 100
+            font_size: 40
+        BoxLayout:
+            size_hint_y: None
+            height: 100
+            Label:
+                text: "Name:"
+                font_size: 25
+            TextInput:
+                id: preset_name
+                font_size: 25
+                multiline: False
+        ScrollView:
+            ExerciseListContainer:
+                size_hint_y: None
+                height: self.minimum_height
+
 
 <EditExerciseScreen>:
-    BoxLayout:
-        Button:
-            text: 'save'
-        Button:
-            text: 'back to exercises'
-            on_press:
-                root.manager.transition.direction = 'right'
-                root.manager.current = 'edit_preset'
+    exercise_name: exercise_name
+    exercise_brk: exercise_brk
+    exercise_reps: exercise_reps
+    exercise_time: exercise_time
+    toggle_button: toggle_button
+    ScrollView:
+        GridLayout:
+            cols: 1
+            ToggleButton:
+                id: toggle_button
+                on_state:
+                    root.on_toggle_button_state(self)
+            TextInput:
+                id: exercise_name
+            TextInput:
+                id: exercise_brk
+            TextInput:
+                id: exercise_reps
+            TextInput:
+                id: exercise_time
