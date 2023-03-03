@@ -4,70 +4,47 @@ from kivy.uix.gridlayout import GridLayout
 from kivy.uix.label import Label
 from kivy.uix.button import Button
 from kivy.uix.scrollview import ScrollView
+from kivy.uix.recycleview.views import RecycleDataViewBehavior
+from kivy.uix.recycleboxlayout import RecycleBoxLayout
+from kivy.uix.behaviors import FocusBehavior
+from kivy.uix.recycleview.layout import LayoutSelectionBehavior
 from kivy.uix.screenmanager import ScreenManager, Screen
-from kivy.properties import ObjectProperty
+from kivy.properties import ObjectProperty, BooleanProperty
 
 from exercise import Exercise
 from preset import Preset
 
 
-# Containers
-class PresetListContainer(GridLayout):
-    def __init__(self, **kwargs):
-        super(PresetListContainer, self).__init__(**kwargs)
-        for item in MainApp.get_running_app().presets:
-            self.add_widget(PresetBoxLayout(item))
-        self.cols = 1
-        self.hint_size_y = None
-        self. spacing = 10
-        self.padding = 10
-        self.height = self.minimum_height
+class SelectableRecycleBoxLayout(FocusBehavior, LayoutSelectionBehavior, RecycleBoxLayout):
+    pass
 
 
-class ExerciseListContainer(GridLayout):
-    preset = None
+class SelectableLabel(RecycleDataViewBehavior, Label):
+    ''' Add selection support to the Label '''
+    index = None
+    selected = BooleanProperty(False)
+    selectable = BooleanProperty(True)
+    obj = None
 
-    def __init__(self, *args, **kwargs):
-        super(ExerciseListContainer, self).__init__(**kwargs)
-        app = MainApp.get_running_app()
-        if len(args) > 0:
-            self.preset = args[0]
-        elif app.current_preset is not None:
-            self.preset = app.current_preset
-        if self.preset is not None:
-            for item in self.preset.exercises:
-                self.add_widget(PresetBoxLayout(item))
-        self.cols = 1
-        self.hint_size_y = None
-        self.spacing = 10
-        self.padding = 10
-        self.height = self.minimum_height
+    def refresh_view_attrs(self, rv, index, data):
+        ''' Catch and handle the view changes '''
+        self.index = index
+        return super(SelectableLabel, self).refresh_view_attrs(
+            rv, index, data)
 
+    def on_touch_down(self, touch):
+        ''' Add selection on touch down '''
+        if super(SelectableLabel, self).on_touch_down(touch):
+            return True
+        if self.collide_point(*touch.pos) and self.selectable:
+            return self.parent.select_with_touch(self.index, touch)
 
-# BoxLayouts
-class PresetBoxLayout(BoxLayout):
-    def __init__(self, *args, **kwargs):
-        super(PresetBoxLayout, self).__init__(**kwargs)
-        self.preset = args[0]
-        self.add_widget(Label(text=self.preset.name))
-        self.size_hint = (1, None)
-        self.height = 130
+    def apply_selection(self, rv, index, is_selected):
+        ''' Respond to the selection of items in the view. '''
+        self.selected = is_selected
+        if self.selected:
+            MainApp.get_running_app().current_exercise = self.index
 
-    def set_preset(self):
-        MainApp.get_running_app().current_exercise = self.preset
-
-
-class ExerciseBoxLayout(BoxLayout):
-
-    def __init__(self, *args, **kwargs):
-        super(ExerciseBoxLayout, self).__init__(**kwargs)
-        self.exercise = args[0]
-        self.add_widget(Label(text=self.exercise.name))
-        self.size_hint = (1, None)
-        self.height = 130
-
-    def set_exercise(self):
-        MainApp.get_running_app().current_exercise = self.exercise
 
 
 # Screens
@@ -78,39 +55,8 @@ class StartingScreen(Screen):
 class EditPresetScreen(Screen):
     preset_name = ObjectProperty(None)
     sv = ObjectProperty(None)
-    preset_exercises = []
-    preset_exercises_btns = []
-    last_exercise = None
-
-    def __init__(self, *args, **kwargs):
-        super(EditPresetScreen, self).__init__(**kwargs)
-        app = MainApp.get_running_app()
-        if len(args) > 0 and args[0].isinstance(Preset):
-            app.current_preset = args[0]
-            self.preset_exercises = args[0].exercises
-            self.preset_name.text = app.current_preset.name
-        else:
-            self.preset_name.text = 'new_preset'
-
-    def on_pre_enter(self, *args):
-        app = MainApp.get_running_app()
-        if self.last_exercise is not None:
-            ex_id = self.preset_exercises.index(self.last_exercise)
-            self.preset_exercises[ex_id] = app.current_exercise
-        else:
-            self.preset_exercises.append(app.current_exercise)
-
-    def save(self):
-        MainApp.get_running_app().save_preset(Preset(self.preset_name.text, self.preset_exercises))
-
-    def add(self):
-        self.last_exercise = MainApp.get_running_app().current_exercise
-
-    def delete(self):
-        self.preset_exercises.remove(MainApp.get_running_app().current_exercise)
-
-
-class EditExerciseScreen(Screen):
+    grid = ObjectProperty(None)
+    preset_exercises = ObjectProperty(None)
     exercise_name = ObjectProperty(None)
     exercise_brk = ObjectProperty(None)
     exercise_reps = ObjectProperty(None)
@@ -118,29 +64,116 @@ class EditExerciseScreen(Screen):
     toggle_button = ObjectProperty(None)
 
     def __init__(self, **kwargs):
-        super(EditExerciseScreen, self).__init__(**kwargs)
+        super(EditPresetScreen, self).__init__(**kwargs)
+        self.exercise_brk.bind(text=self.format_time)
+        self.exercise_brk.bind(text=self.format_time)
+
+    def on_pre_enter(self, *args):
         app = MainApp.get_running_app()
-        if app.current_exercise is not None:
-            self.exercise_name.text = app.current_exercise.name
-            self.exercise_brk.text = f"{app.current_exercise.brk}s"
-            if app.current_exercise.time is not None:
-                self.exercise_time.text = f"{app.current_exercise.time}s"
-                self.exercise_reps.disabled = True
-            else:
-                self.exercise_reps.text = str(app.current_exercise.reps)
-                self.exercise_time.disabled = True
+        if app.current_preset is not None:
+            self.preset_name.text = app.current_preset.name
+            labels = []
+            for item in app.current_preset.exercises:
+                if item.reps is not None:
+                    labels.append(f"{item.name}({item.reps} reps) with {item.brk}s break")
+                else:
+                    labels.append(f"{item.name}({item.time}s) with {item.brk}s break")
+            self.preset_exercises.data = [{'text': text, 'obj': obj}
+                                          for text, obj in zip(labels, app.current_preset.exercises)]
         else:
-            self.toggle_button.state = "normal"
-            self.toggle_button.text = "exercise duration"
-            self.exercise_name.text = "new_exercise"
-            self.exercise_brk.text = "15s"
-            self.exercise_time.text = "45s"
+            self.preset_name.text = 'new_preset'
+            self.preset_exercises.data = []
+
+    def on_touch_down(self, touch):
+        if len(self.preset_exercises.selected) > 0:
+            app = MainApp.get_running_app()
+            selected_ex = self.preset_exercises.selected[0]
+            if selected_ex.index != app.current_exercise_index:
+                self.exercise_name.text = selected_ex.obj.name
+                self.exercise_brk.text = f"{selected_ex.obj.brk}s"
+                if selected_ex.obj.time is not None:
+                    self.exercise_time.text = f"{selected_ex.obj.time}s"
+                    self.exercise_reps.text = "0"
+                    self.exercise_reps.disabled = True
+                    self.toggle_button.state = "normal"
+                else:
+                    self.exercise_time.text = str(selected_ex.obj.reps)
+                    self.exercise_time.text = "0s"
+                    self.exercise_time.disabled = True
+                    self.toggle_button.state = "down"
+
+    def on_leave(self, *args):
+        app = MainApp.get_running_app()
+        app.current_exercise_index = None
+        app.current_preset = None
+
+    def save_exercise(self):
+        if len(self.preset_exercises.selected) > 0:
+            selected_ex = self.preset_exercises.selected[0]
+            selected_ex.obj = self.build_exercise()
+            if selected_ex.obj.time is None:
+                selected_ex.text = f"{selected_ex.obj.name}({selected_ex.obj.time}s)  with {selected_ex.obj.brk}s break)"
+            else:
+                selected_ex.text = f"{selected_ex.obj.name}({selected_ex.obj.time} reps)  with {selected_ex.obj.brk}s " \
+                                   f"break)"
+        else:
+            new_ex = self.build_exercise()
+            if new_ex.time is None:
+                text = f"{new_ex.name}({new_ex.time}s)  with {new_ex.brk}s break)"
+            else:
+                text = f"{new_ex.name}({new_ex.reps} reps)  with {new_ex.brk}s break)"
+            self.preset_exercises.data.append({'text': text, 'obj': new_ex})
+        self.preset_exercises.clear_selection()
+        MainApp.get_running_app().current_exercise_index = None
+
+    def save(self):
+        MainApp.get_running_app().save_preset(Preset(self.preset_name.text, self.get_data()))
+
+    def add(self):
+        self.preset_exercises.clear_selection()
+        MainApp.get_running_app().current_exercise_index = None
+        self.exercise_name.text = "new_exercise"
+        self.exercise_brk.text = "30s"
+        self.exercise_time.text = "15s"
+        self.toggle_button.state = "down"
+        self.exercise_reps.text = "15"
+        self.exercise_time.disabled = True
+
+    def delete(self):
+        if len(self.preset_exercises.selected) > 0:
+            self.preset_exercises.data.remove(self.preset_exercises.selected[0])
+            self.preset_exercises.clear_selection()
+            MainApp.get_running_app().current_exercise_index = None
+
+    def on_toggle_button_state(self, button):
+        if button.state == "normal":
+            button.text = "exercise duration"
+            self.exercise_time.disabled = False
             self.exercise_reps.disabled = True
-            self.exercise_reps.text = "30"
-            self.exercise_brk.bind(text=self.format_time)
-            self.exercise_brk.bind(text=self.format_time)
+        else:
+            button.text = "exercise repetitions"
+            self.exercise_reps.disabled = False
+            self.exercise_time.disabled = True
+
+    def get_data(self):
+        return [item.obj for item in self.preset_exercises.data]
+
+    def format_time(self, instance, value: str):
+        """ formatting time fields and allow to spell only numbers """
+        try:
+            new_val = self.clear_s(value)
+            print(new_val)
+            int(new_val)
+            instance.text = new_val + "s"
+        except:
+            instance.text = "s"
+
+    def clear_s(self, string):
+        """ remove all 's' characters in string """
+        return string.replace("s", "")
 
     def build_exercise(self):
+        """ build new exercise object depending on text inputs values """
         try:
             brk = int(self.clear_s(self.exercise_brk.text))
             if self.toggle_button.state == "normal":
@@ -158,35 +191,6 @@ class EditExerciseScreen(Screen):
         except:
             return None
 
-    def save(self):
-        exercise = self.build_exercise()
-        if exercise is not None:
-            MainApp.get_running_app().current_exercise = self.build_exercise()
-
-    def on_toggle_button_state(self, button):
-        if button.state == "normal":
-            button.text = "exercise duration"
-            self.exercise_time.disabled = False
-            self.exercise_reps.disabled = True
-        else:
-            button.text = "exercise repetitions"
-            self.exercise_reps.disabled = False
-            self.exercise_time.disabled = True
-
-    def format_time(self, instance, value: str):
-        """ formatting time fields and allow to spell only numbers """
-        try:
-            new_val = self.clear_s(value)
-            print(new_val)
-            int(new_val)
-            instance.text = new_val + "s"
-        except:
-            instance.text = "s"
-
-    def clear_s(self, string):
-        """ remove all 's' characters in string """
-        return string.replace("s", "")
-
 
 
 class TrainingScreen(Screen):
@@ -197,13 +201,12 @@ class TrainingScreen(Screen):
 class MainApp(App):
     presets = []
     current_preset = None
-    current_exercise = None
+    current_exercise_index = None
 
     def build(self):
         sm = ScreenManager()
         sm.add_widget(StartingScreen(name='start'))
         sm.add_widget(EditPresetScreen(name='edit_preset'))
-        sm.add_widget(EditExerciseScreen(name='edit_exercise'))
         sm.add_widget(TrainingScreen(name='training'))
 
         return sm
@@ -217,6 +220,7 @@ class MainApp(App):
             p_id = self.presets.index(self.current_preset)
             self.current_preset = None
             self.presets[p_id] = new_preset
+            self.temp_preset = None
         else:
             self.presets.append(new_preset)
 
