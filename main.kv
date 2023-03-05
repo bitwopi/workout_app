@@ -1,4 +1,5 @@
 <StartingScreen>:
+    preset_list: preset_list
     GridLayout:
         cols: 1
         Button:
@@ -9,7 +10,10 @@
             on_press:
                 app.root.transition.direction: "left"
                 app.root.current = "edit_preset"
-                #app.add_preset()
+        RV:
+            id: preset_list
+
+
 
 
 <SelectableLabel>:
@@ -28,7 +32,7 @@
 
 <EditPresetScreen>:
     preset_name: preset_name
-    sv: sv
+    preset_exercises: preset_exercises
     grid: grid
     exercise_name: exercise_name
     exercise_brk: exercise_brk
@@ -60,17 +64,11 @@
                     app.root.transition.direction = 'right'
                     app.root.current = 'start'
                     root.save()
-
-        Label:
-            text: root.preset_name.text
-            size_hint_y: None
-            height: 100
-            font_size: 40
         BoxLayout:
             size_hint_y: None
-            height: 100
+            height: 50
             Label:
-                text: "Name:"
+                text: "Preset Name:"
                 font_size: 25
             TextInput:
                 id: preset_name
@@ -78,36 +76,38 @@
                 multiline: False
         GridLayout:
             cols: 2
-            size_hint_y = None
-            height = 100
+            size_hint_y: None
+            height: 100
             BoxLayout:
                 Label:
-                    text: "Name:"
+                    text: "Exercise name:"
                 TextInput:
                     id: exercise_name
             BoxLayout:
                 Label:
-                    text: "Break duration:"
+                    text: "Exercise break duration:"
                 TextInput:
                     id: exercise_brk
             BoxLayout:
                 Label:
-                    text: "Repetitions:"
+                    text: "Exercise repetitions:"
                 TextInput:
                     id: exercise_reps
             BoxLayout:
                 Label:
-                    text: "Duration:"
+                    text: "Exercise duration:"
                 TextInput:
                     id: exercise_time
-            ToggleButton:
-                id: toggle_button
-                font_size: 25
-                on_state:
-                    root.on_toggle_button_state(self)
+        ToggleButton:
+            id: toggle_button
+            size_hint_y: None
+            height: 50
+            font_size: 25
+            on_state:
+                root.on_toggle_button_state(self)
         BoxLayout:
-            size_hint_y = None
-            height = 40
+            size_hint_y: None
+            height: 40
             Button:
                 text: "Save exercise"
                 on_press:
@@ -116,15 +116,17 @@
                 text: "remove exercise"
                 on_press:
                     root.delete()
-        RecycleView:
+        RV:
             id: preset_exercises
-            viewclass: 'SelectableLabel'
-        SelectableRecycleBoxLayout:
-            default_size: None, dp(26)
-            default_size_hint: 1, None
-            size_hint_y: None
-            height: self.minimum_height
-            orientation: 'vertical'
 
-
+<RV>:
+    list: list
+    viewclass: 'SelectableLabel'
+    SelectableRecycleBoxLayout:
+        id: list
+        default_size: None, 50
+        default_size_hint: 1, None
+        size_hint_y: None
+        height: self.minimum_height
+        orientation: 'vertical'
 
