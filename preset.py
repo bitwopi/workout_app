@@ -17,11 +17,11 @@ class Preset:
         return self.name == other.name and all([ex1 == ex2 for ex1, ex2 in zip(self.exercises, other.exercises)])
 
     def add_exercise(self, exercise):
-        if exercise.isinstance(Exercise):
+        if exercise.isinstance(exercise, Exercise):
             self.exercises.append(exercise)
 
     def remove_exercise(self, exercise):
-        if exercise.isinstance(Exercise):
+        if isinstance(exercise, Exercise):
             self.exercises.remove(exercise)
 
     def clear_preset(self):

@@ -1,9 +1,5 @@
 from kivy.app import App
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.gridlayout import GridLayout
 from kivy.uix.label import Label
-from kivy.uix.button import Button
-from kivy.uix.scrollview import ScrollView
 from kivy.uix.recycleview import RecycleView
 from kivy.uix.recycleview.views import RecycleDataViewBehavior
 from kivy.uix.recycleboxlayout import RecycleBoxLayout
@@ -50,16 +46,42 @@ class SelectableLabel(RecycleDataViewBehavior, Label):
         if self.selected:
             app = MainApp.get_running_app()
             if app.root.current == 'edit_preset':
-                self.parent.parent.parent.on_select()
-            if isinstance(self.parent.parent.parent, StartingScreen):
-                MainApp.get_running_app().current_preset = self.obj
+                self.parent.parent.parent.parent.on_select()
+            if app.root.current == 'start' and self.parent is not None:
+                self.parent.parent.parent.parent.edit_button.disabled = False
+                self.parent.parent.parent.parent.copy_button.disabled = False
+                self.parent.parent.parent.parent.remove_button.disabled = False
+                self.parent.parent.parent.parent.start_button.disabled = False
 
 
 # Screens
 class StartingScreen(Screen):
     preset_list = ObjectProperty(None)
+    edit_button = ObjectProperty(None)
+    copy_button = ObjectProperty(None)
+    remove_button = ObjectProperty(None)
+    start_button = ObjectProperty(None)
 
-    def on_enter(self, *args):
+    def on_pre_enter(self, *args):
+        self.fill_data()
+
+    def edit(self):
+        MainApp.get_running_app().current_preset = self.preset_list.data[self.preset_list.list.selected_nodes[0]]['obj']
+    def copy(self):
+        orig = self.preset_list.data[self.preset_list.list.selected_nodes[0]]['obj']
+        MainApp.get_running_app().presets.append(Preset(orig.name, orig.exercises))
+        self.fill_data()
+
+    def remove(self):
+        MainApp.get_running_app().presets.remove(self.preset_list.data[self.preset_list.list.selected_nodes[0]]['obj'])
+        self.fill_data()
+        if len(self.preset_list.data) == 0:
+            self.copy_button.disabled = True
+            self.edit_button.disabled = True
+            self.remove_button.disabled = True
+            self.start_button = True
+
+    def fill_data(self):
         self.preset_list.data = [{'text': item.name, 'obj': item} for item in MainApp.get_running_app().presets]
 
 
@@ -93,21 +115,20 @@ class EditPresetScreen(Screen):
 
     def on_select(self):
         if len(self.preset_exercises.list.selected_nodes) > 0:
-            app = MainApp.get_running_app()
             selected_ex = self.preset_exercises.data[self.preset_exercises.list.selected_nodes[0]]
-            print(selected_ex.obj)
-            self.exercise_name.text = selected_ex.obj.name
-            self.exercise_brk.text = f"{selected_ex.obj.brk}s"
-            if selected_ex.obj.time is not None:
-                self.exercise_time.text = f"{selected_ex.obj.time}s"
+            print(selected_ex)
+            self.exercise_name.text = selected_ex['obj'].name
+            self.exercise_brk.text = f"{selected_ex['obj'].brk}s"
+            if selected_ex['obj'].time is not None:
+                self.exercise_time.text = f"{selected_ex['obj'].time}s"
                 self.exercise_reps.text = "0"
                 self.exercise_reps.disabled = True
-                self.toggle_button.state = "down"
+                self.toggle_button.state = "normal"
             else:
-                self.exercise_time.text = str(selected_ex.obj.reps)
+                self.exercise_reps.text = str(selected_ex['obj'].reps)
                 self.exercise_time.text = "0s"
                 self.exercise_time.disabled = True
-                self.toggle_button.state = "normal"
+                self.toggle_button.state = "down"
 
     def on_leave(self, *args):
         app = MainApp.get_running_app()
@@ -119,20 +140,18 @@ class EditPresetScreen(Screen):
         if len(self.preset_exercises.list.selected_nodes) > 0:
             index = self.preset_exercises.list.selected_nodes[0]
             new_ex = self.build_exercise()
-            self.preset_exercises.data[index] = {'text': f"{new_ex.__str__()} with {new_ex.brk}s break"}
+            self.preset_exercises.data[index] = {'text': f"{new_ex.__str__()} with {new_ex.brk}s break", 'obj': new_ex}
         elif self.build_exercise() is not None:
             new_ex = self.build_exercise()
             text = f"{new_ex.__str__()}  with {new_ex.brk}s break"
             self.preset_exercises.data.append({'text': text, 'obj': new_ex})
         self.clear_fields()
-        MainApp.get_running_app().current_exercise_index = None
 
     def save(self):
         MainApp.get_running_app().save_preset(Preset(self.preset_name.text, self.get_data()))
 
     def add(self):
         self.preset_exercises.list.clear_selection()
-        MainApp.get_running_app().current_exercise_index = None
         self.exercise_name.text = "new_exercise"
         self.exercise_brk.text = "30s"
         self.exercise_time.text = "15s"
@@ -141,7 +160,6 @@ class EditPresetScreen(Screen):
 
     def clear_fields(self):
         self.preset_exercises.list.clear_selection()
-        MainApp.get_running_app().current_exercise_index = None
         self.exercise_name.text = ""
         self.exercise_brk.text = ""
         self.exercise_time.text = ""
@@ -187,7 +205,6 @@ class EditPresetScreen(Screen):
             else:
                 reps = int(self.exercise_reps.text)
                 time = None
-            print(brk, time, reps)
             return Exercise(name=self.exercise_name.text,
                             brk=brk,
                             time=time,
@@ -196,7 +213,6 @@ class EditPresetScreen(Screen):
         except Exception as ex:
             print(ex)
             return None
-
 
 
 class TrainingScreen(Screen):
@@ -216,15 +232,12 @@ class MainApp(App):
 
         return sm
 
-    def add_preset(self, name, exercises):
-        self.current_preset = Preset(name, exercises)
-        self.presets.append(self.current_preset)
-
     def save_preset(self, new_preset: Preset):
         if self.current_preset is not None:
             p_id = self.presets.index(self.current_preset)
+            self.presets[p_id].excercises = new_preset.exercises
+            self.presets[p_id].name = new_preset.name
             self.current_preset = None
-            self.presets[p_id] = new_preset
         else:
             self.presets.append(new_preset)
 

@@ -1,17 +1,55 @@
 <StartingScreen>:
     preset_list: preset_list
+    edit_button: edit_button
+    copy_button: copy_button
+    remove_button: remove_button
+    start_button: start_button
     GridLayout:
         cols: 1
+        BoxLayout:
+            size_hint: 1, None
+            height: 40
+            Button:
+                text: "Add preset"
+                font_size: 25
+                on_press:
+                    app.root.transition.direction: "left"
+                    app.root.current = "edit_preset"
+            Button:
+                id: edit_button
+                text: "Edit preset"
+                font_size: 25
+                disabled: True
+                on_press:
+                    root.edit()
+                    app.root.transition.direction: "left"
+                    app.root.current = "edit_preset"
+            Button:
+                id: copy_button
+                text: "Copy preset"
+                font_size: 25
+                disabled: True
+                on_press:
+                    root.copy()
+            Button:
+                id: remove_button
+                text: "Remove preset"
+                font_size: 25
+                disabled: True
+                on_press:
+                    root.remove()
+        RV:
+            id: preset_list
         Button:
-            text: "Add preset"
+            id: start_button
+            text: "Start training"
             font_size: 25
             size_hint: 1, None
             height: 40
+            disabled: True
             on_press:
                 app.root.transition.direction: "left"
-                app.root.current = "edit_preset"
-        RV:
-            id: preset_list
+                app.root.current = "training"
 
 
 
@@ -61,9 +99,9 @@
                 text: "Save preset"
                 font_size: 25
                 on_press:
+                    root.save()
                     app.root.transition.direction = 'right'
                     app.root.current = 'start'
-                    root.save()
         BoxLayout:
             size_hint_y: None
             height: 50
