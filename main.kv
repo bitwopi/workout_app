@@ -48,6 +48,7 @@
             height: 40
             disabled: True
             on_press:
+                root.start_training()
                 app.root.transition.direction: "left"
                 app.root.current = "training"
 
@@ -87,9 +88,9 @@
                 text: "<--"
                 font_size: 25
                 on_press:
+                    app.current_preset = None
                     app.root.transition.direction = 'right'
                     app.root.current = 'start'
-                    app.current_preset = None
             Button:
                 text: "Add exercise"
                 font_size: 25
@@ -168,3 +169,38 @@
         height: self.minimum_height
         orientation: 'vertical'
 
+<TrainingScreen>:
+    timer: timer
+    btn: btn
+    exercise_name: exercise_name
+    auto_btn: auto_btn
+
+    BoxLayout:
+        orientation: "vertical"
+        BoxLayout:
+            size_hint_y: None
+            height: 50
+            Button:
+                text: "<--"
+                font_size: 25
+                on_press:
+                    app.current_preset = None
+                    app.root.transition.direction = 'right'
+                    app.root.current = 'start'
+            ToggleButton:
+                id: auto_btn
+                text: "Auto"
+                font_size: 25
+        Label:
+            id: exercise_name
+            font_size: 25
+        Label:
+            id: timer
+            text: "timer"
+            font_size: 25
+        Button:
+            id: btn
+            text: "Start"
+            font_size: 25
+            on_press:
+                root.on_click()

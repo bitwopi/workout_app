@@ -7,10 +7,12 @@ from kivy.uix.behaviors import FocusBehavior
 from kivy.uix.recycleview.layout import LayoutSelectionBehavior
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.properties import ObjectProperty, BooleanProperty
+from kivy.clock import Clock
 
 from exercise import Exercise
 from preset import Preset
 
+import pickle
 
 class RV(RecycleView):
     list = ObjectProperty(None)
@@ -21,27 +23,27 @@ class SelectableRecycleBoxLayout(FocusBehavior, LayoutSelectionBehavior, Recycle
 
 
 class SelectableLabel(RecycleDataViewBehavior, Label):
-    ''' Add selection support to the Label '''
+    """ Add selection support to the Label """
     index = None
     selected = BooleanProperty(False)
     selectable = BooleanProperty(True)
     obj = None
 
     def refresh_view_attrs(self, rv, index, data):
-        ''' Catch and handle the view changes '''
+        """ Catch and handle the view changes """
         self.index = index
         return super(SelectableLabel, self).refresh_view_attrs(
             rv, index, data)
 
     def on_touch_down(self, touch):
-        ''' Add selection on touch down '''
+        """ Add selection on touch down """
         if super(SelectableLabel, self).on_touch_down(touch):
             return True
         if self.collide_point(*touch.pos) and self.selectable:
             return self.parent.select_with_touch(self.index, touch)
 
     def apply_selection(self, rv, index, is_selected):
-        ''' Respond to the selection of items in the view. '''
+        """ Respond to the selection of items in the view. """
         self.selected = is_selected
         if self.selected:
             app = MainApp.get_running_app()
@@ -61,12 +63,17 @@ class StartingScreen(Screen):
     copy_button = ObjectProperty(None)
     remove_button = ObjectProperty(None)
     start_button = ObjectProperty(None)
+    
+    def __init__(self, **kwargs):
+        super(StartingScreen, self).__init__(**kwargs)
+        self.fill_data()
 
-    def on_pre_enter(self, *args):
+    def on_enter(self, *args):
         self.fill_data()
 
     def edit(self):
         MainApp.get_running_app().current_preset = self.preset_list.data[self.preset_list.list.selected_nodes[0]]['obj']
+
     def copy(self):
         orig = self.preset_list.data[self.preset_list.list.selected_nodes[0]]['obj']
         MainApp.get_running_app().presets.append(Preset(orig.name, orig.exercises))
@@ -80,6 +87,9 @@ class StartingScreen(Screen):
             self.edit_button.disabled = True
             self.remove_button.disabled = True
             self.start_button = True
+
+    def start_training(self):
+        MainApp.get_running_app().current_preset = self.preset_list.data[self.preset_list.list.selected_nodes[0]]['obj']
 
     def fill_data(self):
         self.preset_list.data = [{'text': item.name, 'obj': item} for item in MainApp.get_running_app().presets]
@@ -216,7 +226,89 @@ class EditPresetScreen(Screen):
 
 
 class TrainingScreen(Screen):
-    pass
+    timer = ObjectProperty(None)
+    btn = ObjectProperty(None)
+    exercise_name = ObjectProperty(None)
+    auto_btn = ObjectProperty(None)
+    current_exercise = None
+    current_time = None
+    is_break = None
+
+    def on_enter(self, *args):
+        self.current_exercise = MainApp.get_running_app().current_preset.exercises[0]
+        self.is_break = False
+        self.check_exercise_type()
+
+    def on_leave(self, *args):
+        self.current_exercise = None
+        self.current_time = None
+        try:
+            Clock.unschedule(self.update)
+        except Exception as ex:
+            print(ex)
+        MainApp.get_running_app().current_preset = None
+        self.auto_btn.state = "normal"
+
+    def check_exercise_type(self):
+        if self.current_exercise is not None:
+            self.exercise_name.text = self.current_exercise.name
+            if self.current_exercise.reps is None and self.auto_btn.state == "normal":
+                self.btn.text = "Start"
+                self.timer.text = str(self.current_exercise.time)
+            elif self.current_exercise.reps is None and self.auto_btn.state == "down":
+                self.btn.text = "Pause"
+                self.timer.text = str(self.current_exercise.time)
+                self.current_time = self.current_exercise.time
+                Clock.schedule_interval(self.update, 1)
+            else:
+                Clock.unschedule(self.update)
+                self.timer.text = str(self.current_exercise.reps)
+                self.btn.text = "Next"
+
+    def on_click(self, *args):
+        if self.btn.text == "Start":
+            self.current_time = self.current_exercise.time
+            Clock.schedule_interval(self.update, 1)
+            self.btn.text = "Pause"
+        elif self.btn.text == "Pause":
+            Clock.unschedule(self.update)
+            self.btn.text = "Resume"
+        elif self.btn.text == "Resume":
+            Clock.schedule_interval(self.update, 1)
+            self.btn.text = "Pause"
+        elif self.btn.text == "Next":
+            self.next()
+        elif self.btn.text == "Restart":
+            self.current_exercise = MainApp.get_running_app().current_preset.exercises[0]
+            self.check_exercise_type()
+
+    def update(self, tick):
+        if self.current_time is not None and self.current_time > 0:
+            self.current_time -= 1
+            self.timer.text = str(self.current_time)
+        elif self.current_time == 0 and self.is_break:
+            Clock.unschedule(self.update)
+            self.next()
+        elif self.current_time == 0 and not self.is_break:
+            self.start_break()
+
+    def start_break(self):
+        self.current_time = self.current_exercise.brk
+        self.timer.text = str(self.current_time)
+        self.exercise_name.text = "Break"
+        self.is_break = True
+
+    def next(self):
+        try:
+            preset = MainApp.get_running_app().current_preset
+            self.is_break = False
+            self.current_exercise = preset.exercises[preset.exercises.index(self.current_exercise) + 1]
+            self.check_exercise_type()
+        except:
+            self.timer.text = "You completed all exercises.\nCongratulations!"
+            Clock.unschedule(self.update)
+            self.btn.text = "Restart"
+
 
 
 # App
@@ -240,6 +332,21 @@ class MainApp(App):
             self.current_preset = None
         else:
             self.presets.append(new_preset)
+
+    def on_start(self):
+        try:
+            with open("config.pickle", "rb") as file:
+                self.presets = pickle.load(file)
+        except Exception as ex:
+            print(ex)
+            self.presets = []
+
+    def on_stop(self):
+        try:
+            with open("config.pickle", "wb") as file:
+                pickle.dump(self.presets, file)
+        except Exception as ex:
+            print(ex)
 
 
 if __name__ == '__main__':
