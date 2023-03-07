@@ -1,4 +1,5 @@
 from kivy.app import App
+from kivy.core.audio import SoundLoader
 from kivy.uix.label import Label
 from kivy.uix.recycleview import RecycleView
 from kivy.uix.recycleview.views import RecycleDataViewBehavior
@@ -13,6 +14,7 @@ from exercise import Exercise
 from preset import Preset
 
 import pickle
+
 
 class RV(RecycleView):
     list = ObjectProperty(None)
@@ -277,13 +279,20 @@ class TrainingScreen(Screen):
             Clock.schedule_interval(self.update, 1)
             self.btn.text = "Pause"
         elif self.btn.text == "Next":
-            self.next()
+            if self.current_exercise != MainApp.get_running_app().current_preset.exercises[-1]:
+                self.start_break()
+                Clock.schedule_interval(self.update, 1)
+                self.btn.text = "Pause"
+            else:
+                self.next()
         elif self.btn.text == "Restart":
             self.current_exercise = MainApp.get_running_app().current_preset.exercises[0]
             self.check_exercise_type()
 
     def update(self, tick):
         if self.current_time is not None and self.current_time > 0:
+            if self.current_time == 5:
+                self.play_end_sound()
             self.current_time -= 1
             self.timer.text = str(self.current_time)
         elif self.current_time == 0 and self.is_break:
@@ -305,10 +314,17 @@ class TrainingScreen(Screen):
             self.current_exercise = preset.exercises[preset.exercises.index(self.current_exercise) + 1]
             self.check_exercise_type()
         except:
-            self.timer.text = "You completed all exercises.\nCongratulations!"
+            self.timer.text = "You have completed all exercises.\nGood job!"
             Clock.unschedule(self.update)
             self.btn.text = "Restart"
 
+    def play_end_sound(self):
+        sound = SoundLoader.load('media/audio/end_sound.wav')
+        if sound:
+            print("Sound found at %s" % sound.source)
+            print("Sound is %.3f seconds" % sound.length)
+            sound.play()
+        else: print("aaaaaaa")
 
 
 # App
