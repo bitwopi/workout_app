@@ -235,15 +235,18 @@ class TrainingScreen(Screen):
     current_exercise = None
     current_time = None
     is_break = None
+    index = None
 
     def on_enter(self, *args):
         self.current_exercise = MainApp.get_running_app().current_preset.exercises[0]
         self.is_break = False
         self.check_exercise_type()
+        self.index = 0
 
     def on_leave(self, *args):
         self.current_exercise = None
         self.current_time = None
+        self.index = None
         try:
             Clock.unschedule(self.update)
         except Exception as ex:
@@ -311,7 +314,8 @@ class TrainingScreen(Screen):
         try:
             preset = MainApp.get_running_app().current_preset
             self.is_break = False
-            self.current_exercise = preset.exercises[preset.exercises.index(self.current_exercise) + 1]
+            self.index += 1
+            self.current_exercise = preset.exercises[self.index]
             self.check_exercise_type()
         except:
             self.timer.text = "You have completed all exercises.\nGood job!"
@@ -324,8 +328,6 @@ class TrainingScreen(Screen):
             print("Sound found at %s" % sound.source)
             print("Sound is %.3f seconds" % sound.length)
             sound.play()
-        else: print("aaaaaaa")
-
 
 # App
 class MainApp(App):
